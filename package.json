@@ -1,0 +1,40 @@
+{
+  "name": "split-happens",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "(cd src-tauri && cargo test)",
+    "macos": "tauri dev -- --features macos",
+    "mac-ios": "tauri dev -- --features ios",
+    "mac-android": "tauri dev -- --features android",
+    "ios": "tauri ios dev --features ios --host --open",
+    "android": "tauri android dev -- --features android",
+    "release-ios": "npm run tauri ios build -- -f ios --export-method app-store-connect && xcrun altool --upload-app --type ios --file \"src-tauri/gen/apple/build/arm64/maistro.ipa\" --apiKey $APPLE_API_KEY_ID --apiIssuer $APPLE_API_ISSUER",
+    "release-android": "npm run tauri android build -- -f android --apk",
+    "release-all": "npm run release-ios && npm run release-android",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.6.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
