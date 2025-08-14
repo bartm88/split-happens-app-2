@@ -1,4 +1,4 @@
-package com.michaelbartholomew.split_happens
+package com.split_happens.app
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

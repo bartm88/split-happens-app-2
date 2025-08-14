@@ -119,7 +119,7 @@ function App() {
 
   return (
     <div className="min-h-screen wood-background">
-      <div className="container mx-auto px-2 py-4 pt-10 pb-10">
+      <div className="container mx-auto px-2 py-4 pt-10 pb-12">
         <header className="text-center mb-8 relative">
           <div className="bg-neutral rounded-lg p-4 inline-block">
             <h1 className="text-4xl font-bold text-neutral mb-2">

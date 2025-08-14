@@ -1,4 +1,4 @@
-/src/main/java/com/michaelbartholomew/split_happens/generated
+/src/main/java/com/split_happens/app/generated
 /src/main/jniLibs/**/*.so
 /src/main/assets/tauri.conf.json
 /tauri.build.gradle.kts

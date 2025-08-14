@@ -59,7 +59,7 @@ export const TransactionList = ({
               key={index}
               className="p-4 hover:bg-neutral-hover transition-colors"
             >
-              <div className="grid grid-cols-[3fr_1fr_4fr] gap-4 items-center">
+              <div className="grid grid-cols-[4fr_2fr_4fr] gap-4 items-center">
                 {/* Transaction Details */}
                 <div>
                   <div className="flex items-center space-x-2">
