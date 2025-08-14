@@ -129,8 +129,14 @@ function App() {
 
           <div className="absolute top-0 right-0">
             <Settings
-              onSheetIdChange={tauri.setSheetId}
-              onSetDemoSheetId={tauri.setDemoSheetId}
+              onSheetIdChange={async (sheetId) => {
+                tauri.setSheetId(sheetId);
+                loadData(true);
+              }}
+              onSetDemoSheetId={async () => {
+                await tauri.setDemoSheetId();
+                loadData(true);
+              }}
               getCurrentSheetId={tauri.getSheetId}
             />
           </div>

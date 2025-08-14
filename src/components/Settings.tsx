@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ThemeSwitcher } from './ThemeSwitcher';
-import { Modal } from './Modal';
+import { useState, useEffect } from "react";
+import { ThemeSwitcher } from "./ThemeSwitcher";
+import { Modal } from "./Modal";
 
 interface SettingsProps {
   onSheetIdChange: (sheetId: string) => Promise<void>;
@@ -8,9 +8,13 @@ interface SettingsProps {
   getCurrentSheetId: () => Promise<string>;
 }
 
-export const Settings = ({ onSheetIdChange, onSetDemoSheetId, getCurrentSheetId }: SettingsProps) => {
-  const [sheetId, setSheetId] = useState('');
-  const [currentSheetId, setCurrentSheetId] = useState('');
+export const Settings = ({
+  onSheetIdChange,
+  onSetDemoSheetId,
+  getCurrentSheetId,
+}: SettingsProps) => {
+  const [sheetId, setSheetId] = useState("");
+  const [currentSheetId, setCurrentSheetId] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -33,7 +37,7 @@ export const Settings = ({ onSheetIdChange, onSetDemoSheetId, getCurrentSheetId 
       setCurrentSheetId(sheetId.trim());
       setIsOpen(false);
     } catch (error) {
-      console.error('Error updating sheet ID:', error);
+      console.error("Error updating sheet ID:", error);
     } finally {
       setIsSaving(false);
     }
@@ -48,7 +52,7 @@ export const Settings = ({ onSheetIdChange, onSetDemoSheetId, getCurrentSheetId 
       setSheetId(newSheetId);
       setIsOpen(false);
     } catch (error) {
-      console.error('Error setting demo sheet ID:', error);
+      console.error("Error setting demo sheet ID:", error);
     } finally {
       setIsSaving(false);
     }
@@ -71,19 +75,22 @@ export const Settings = ({ onSheetIdChange, onSetDemoSheetId, getCurrentSheetId 
           </label>
           <ThemeSwitcher />
         </div>
-        
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-neutral mb-1">
             Current Sheet ID:
           </label>
           <p className="text-sm text-neutral opacity-80 bg-neutral p-2 rounded break-all">
-            {currentSheetId || 'Not set'}
+            {currentSheetId || "Not set"}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="sheet-id" className="block text-sm font-medium text-neutral mb-2">
+            <label
+              htmlFor="sheet-id"
+              className="block text-sm font-medium text-neutral mb-2"
+            >
               Google Sheet ID
             </label>
             <input
@@ -99,12 +106,15 @@ export const Settings = ({ onSheetIdChange, onSetDemoSheetId, getCurrentSheetId 
           <div className="flex space-x-2">
             <button
               type="submit"
-              disabled={isSaving || !sheetId.trim() || sheetId === currentSheetId}
+              onClick={handleSubmit}
+              disabled={
+                isSaving || !sheetId.trim() || sheetId === currentSheetId
+              }
               className="flex-1 bg-primary-hover text-primary py-2 px-4 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? 'Saving...' : 'Update'}
+              {isSaving ? "Saving..." : "Update"}
             </button>
-            
+
             <button
               type="button"
               onClick={handleSetDemo}

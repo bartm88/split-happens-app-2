@@ -189,7 +189,6 @@ pub fn run() {
         ])
         .setup(|app| {
             let store = app.store("store.json")?;
-            store.clear();
             log::info!("Current store: {:?}", store.entries());
             if store.get("sheet-id").is_none() {
                 log::info!("Setting sheet id to {}", DEMO_SHEET_ID);

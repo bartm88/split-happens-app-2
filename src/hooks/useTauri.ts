@@ -38,7 +38,7 @@ export const useTauri = () => {
   };
 
   const setSheetId = async (sheetId: string): Promise<void> => {
-    return await invoke("set_sheet_id", { sheetId });
+    return await invoke("set_sheet_id", { sheet_id: sheetId });
   };
 
   const getSheetId = async (): Promise<string> => {
