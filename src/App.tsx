@@ -120,38 +120,20 @@ function App() {
 
   return (
     <div className="min-h-screen wood-background">
-      {/* Balance Ticker */}
-      <BalanceTicker balances={balances} />
-
-      <div className="container mx-auto px-4 py-8 pt-20">
+      <div className="container mx-auto px-2 py-4 pt-10 pb-10">
         <header className="text-center mb-8 relative">
-          <div className="bg-neutral rounded-lg p-6 inline-block">
+          <div className="bg-neutral rounded-lg p-4 inline-block">
             <h1 className="text-4xl font-bold text-neutral mb-2">
               Split Happens
             </h1>
-            <p className="text-neutral opacity-80">
-              Track your bowling splits and earnings
-            </p>
           </div>
 
-          <div className="absolute top-0 right-0 flex flex-col items-end space-y-2">
+          <div className="absolute top-0 right-0">
             <Settings
               onSheetIdChange={tauri.setSheetId}
               onSetDemoSheetId={tauri.setDemoSheetId}
               getCurrentSheetId={tauri.getSheetId}
             />
-            <button
-              onClick={() => loadData(true)}
-              disabled={refreshing}
-              className="bg-secondary-hover text-secondary p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-10 h-10 flex items-center justify-center"
-              title="Refresh Data"
-            >
-              <span
-                className={refreshing ? "inline-block animate-spin-slow" : ""}
-              >
-                ↻
-              </span>
-            </button>
           </div>
         </header>
 
@@ -175,9 +157,13 @@ function App() {
               transactions={transactions}
               onUndo={handleRemoveLastTransaction}
               onConvert={handleConvertFromTransaction}
+              onRefresh={() => loadData(true)}
+              refreshing={refreshing}
             />
           )}
         </div>
+
+        <BalanceTicker balances={balances} />
 
         {/* Modal */}
         <Modal

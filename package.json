@@ -14,7 +14,7 @@
     "mac-android": "tauri dev -- --features android",
     "ios": "tauri ios dev --features ios --host --open",
     "android": "tauri android dev -- --features android",
-    "release-ios": "npm run tauri ios build -- -f ios --export-method app-store-connect && xcrun altool --upload-app --type ios --file \"src-tauri/gen/apple/build/arm64/maistro.ipa\" --apiKey $APPLE_API_KEY_ID --apiIssuer $APPLE_API_ISSUER",
+    "release-ios": "npm run tauri ios build -- -f ios --export-method app-store-connect && xcrun altool --upload-app --type ios --file \"src-tauri/gen/apple/build/arm64/split-happens.ipa\" --apiKey $APPLE_API_KEY_ID --apiIssuer $APPLE_API_ISSUER",
     "release-android": "npm run tauri android build -- -f android --apk",
     "release-all": "npm run release-ios && npm run release-android",
     "lint": "eslint ."
