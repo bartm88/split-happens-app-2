@@ -32,8 +32,19 @@ export const TransactionList = ({
           className="bg-secondary-hover text-secondary p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-8 h-8 flex items-center justify-center"
           title="Refresh Data"
         >
-          <svg className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          <svg
+            className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
           </svg>
         </button>
       </div>
@@ -48,7 +59,7 @@ export const TransactionList = ({
               key={index}
               className="p-4 hover:bg-neutral-hover transition-colors"
             >
-              <div className="grid grid-cols-[3fr_1fr_4fr] gap-4 items-center justify-items-start">
+              <div className="grid grid-cols-[3fr_1fr_4fr] gap-4 items-center">
                 {/* Transaction Details */}
                 <div>
                   <div className="flex items-center space-x-2">
@@ -71,12 +82,12 @@ export const TransactionList = ({
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex gap-4 justify-center">
+                <div className="flex gap-4">
                   <button
                     onClick={() => onConvert(transaction)}
-                    disabled={!isSplit(transaction)}
-                    className={`p-2 rounded-md transition-colors w-8 h-8 flex items-center justify-start ${
-                      isSplit(transaction)
+                    disabled={!isSplit(transaction) || refreshing}
+                    className={`p-2 rounded-md transition-colors w-8 h-8 flex items-center justify-center ${
+                      isSplit(transaction) && !refreshing
                         ? "bg-confirmation-hover text-confirmation"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     }`}
@@ -97,10 +108,15 @@ export const TransactionList = ({
                       />
                     </svg>
                   </button>
-                  {index === 0 && (
+                  {index === 0 ? (
                     <button
                       onClick={onUndo}
-                      className="p-2 bg-negative-hover text-negative rounded-md transition-colors w-8 h-8 flex items-center justify-center"
+                      disabled={refreshing}
+                      className={`p-2 rounded-md transition-colors w-8 h-8 flex items-center justify-center ${
+                        refreshing
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-negative-hover text-negative"
+                      }`}
                       title="Undo"
                     >
                       <svg
@@ -118,6 +134,8 @@ export const TransactionList = ({
                         />
                       </svg>
                     </button>
+                  ) : (
+                    <div className="w-8 h-8"></div>
                   )}
                 </div>
 

@@ -150,17 +150,13 @@ function App() {
           </div>
 
           {/* Transactions List */}
-          {refreshing ? (
-            <LoadingSpinner />
-          ) : (
-            <TransactionList
-              transactions={transactions}
-              onUndo={handleRemoveLastTransaction}
-              onConvert={handleConvertFromTransaction}
-              onRefresh={() => loadData(true)}
-              refreshing={refreshing}
-            />
-          )}
+          <TransactionList
+            transactions={transactions}
+            onUndo={handleRemoveLastTransaction}
+            onConvert={handleConvertFromTransaction}
+            onRefresh={() => loadData(true)}
+            refreshing={refreshing}
+          />
         </div>
 
         <BalanceTicker balances={balances} />
