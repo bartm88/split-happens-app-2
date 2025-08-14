@@ -4,6 +4,8 @@ interface BalanceTickerProps {
   balances: Balance[];
 }
 
+const SEPARATOR = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+
 export const BalanceTicker = ({ balances }: BalanceTickerProps) => {
   const formatBalance = (balance: Balance) => {
     const amount = parseFloat(balance.amount);
@@ -39,10 +41,9 @@ export const BalanceTicker = ({ balances }: BalanceTickerProps) => {
             balance
           )}</span>`
       )
-      .join(" ");
+      .join(SEPARATOR);
 
-    // Replicate the text 3 times with separators
-    return `${singleText} ${singleText} ${singleText}`;
+    return `${singleText}${SEPARATOR}${singleText}${SEPARATOR}${singleText}${SEPARATOR}${singleText}${SEPARATOR}`;
   };
 
   return (

@@ -60,12 +60,6 @@ function App() {
     setIsModalOpen(false);
   };
 
-  const handleConvertSplit = async (name: string, split: string) => {
-    await tauri.convertSplit(name, split);
-    await loadData(true);
-    setIsModalOpen(false);
-  };
-
   const openCreateModal = () => {
     setIsModalOpen(true);
   };
@@ -99,7 +93,7 @@ function App() {
   if (error) {
     return (
       <div className="min-h-screen wood-background flex items-center justify-center">
-        <div className="text-center bg-secondary bg-opacity-80 p-8 rounded-lg shadow-md">
+        <div className="text-center bg-secondary p-8 rounded-lg shadow-md">
           <div
             className="text-negative text-xl mb-4"
             style={{ fontFamily: "Minecart LCD, monospace" }}
@@ -131,14 +125,21 @@ function App() {
 
       <div className="container mx-auto px-4 py-8 pt-20">
         <header className="text-center mb-8 relative">
-          <h1 className="text-4xl font-bold text-neutral mb-2">
-            Split Happens
-          </h1>
-          <p className="text-neutral opacity-80">
-            Track your bowling splits and earnings
-          </p>
+          <div className="bg-neutral rounded-lg p-6 inline-block">
+            <h1 className="text-4xl font-bold text-neutral mb-2">
+              Split Happens
+            </h1>
+            <p className="text-neutral opacity-80">
+              Track your bowling splits and earnings
+            </p>
+          </div>
 
-          <div className="absolute top-0 right-0 flex items-center space-x-2">
+          <div className="absolute top-0 right-0 flex flex-col items-end space-y-2">
+            <Settings
+              onSheetIdChange={tauri.setSheetId}
+              onSetDemoSheetId={tauri.setDemoSheetId}
+              getCurrentSheetId={tauri.getSheetId}
+            />
             <button
               onClick={() => loadData(true)}
               disabled={refreshing}
@@ -151,11 +152,6 @@ function App() {
                 ↻
               </span>
             </button>
-            <Settings
-              onSheetIdChange={tauri.setSheetId}
-              onSetDemoSheetId={tauri.setDemoSheetId}
-              getCurrentSheetId={tauri.getSheetId}
-            />
           </div>
         </header>
 
@@ -167,7 +163,7 @@ function App() {
               onClick={openCreateModal}
               className="bg-primary-hover text-primary px-8 py-3 rounded-lg font-semibold text-lg transition-colors shadow-lg"
             >
-              Add New Split
+              Add Split
             </button>
           </div>
 
@@ -193,8 +189,6 @@ function App() {
             names={names}
             validSplits={validSplits}
             onCreateSplit={handleCreateSplit}
-            onConvertSplit={handleConvertSplit}
-            initialMode="create"
           />
         </Modal>
       </div>

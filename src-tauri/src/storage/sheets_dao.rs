@@ -1,3 +1,5 @@
+use super::{Balance, StorageDao, Transaction};
+use async_trait::async_trait;
 use std::{collections::HashMap, time::SystemTime};
 
 use bytes::Bytes;
@@ -11,51 +13,21 @@ use google_sheets4::{
     Sheets,
 };
 use http_body_util::combinators::BoxBody;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 const POT: &str = "Pot";
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Transaction {
-    pub creditor: String,
-    pub debtor: String,
-    pub amount: f64,
-    pub split: String,
-    pub time: String,
-    pub pot_amount: f64,
-    pub date: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Balance {
-    pub name: String,
-    pub amount: String,
-}
 pub struct SheetsDao {
     sheet_id: String,
     sheets: Sheets<HttpsConnector<HttpConnector>>,
 }
 
-const SERVICE_ACCOUNT_KEY_STRING: &str = r#"
-{
-  "type": "service_account",
-  "project_id": "splithappens",
-  "private_key_id": "d3b1fd20bbad00d0ba9a5681d2ca46dd83c683f2",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCBmGkp3HMeKZc1\n2RDdtIs+ocYZ4zs4H4KhSM53DTIsDzqzgkJ9OoKW2kNXPycasBHylv2c4M6XNh4O\nSi8qzX2Aa4d6M2/ioVUhzFRVfZ73mm05b6NJIADLIP1MDyKPJsbiriK5NaJ1QB/k\nmt4XvaPOA9AAnHLS36CEi/pnougthoL3wZXe1f/n/O22kEnNnhYPYY7Bo5F+cJjT\nIhHlLz3jaonmvcZlTX7SDsYXIgaq7SWrS+MVdenuOt4KC2kXgtD1KUyXoV/fL94t\nEGObIShSHEazsgvsjuMbludPccZUQJgSNv/+PGOSwLrFhx+bEXrEVIuH2ymDuxxJ\n7fkD3xn9AgMBAAECggEAHyxey5uEM3K0tVbAGFyIDCpU4UBIK/FkdlBxnbCWa4PE\nTo7cWIw9AnWBMlj2GpTU1GJeoiBvgW8anrxYiTbB5CS5g3shBEZjmIwykxfzJ8NF\nV8YTZJEmr7YBSAzx9rZQrBFQN/X/XK3ungpktxg+cV14aNU5R6FUVt3m/4vvxpdX\ng7pmCiWAuI4y8uYbgLpgBms/U8LVgMOUkS/ecyc8ihodG7nN2kZRHPUj3haFi0+a\n4BVR3cqIm15KWZMAvCoCLcAdHG51cz8ttluM1BxDK/ezZOrnYRVaWIl0u9KMfMA6\n8FsCb5aoE0eKwqpNjOCxGlTi9Lezub0cGe562+pmXwKBgQC2kw0mcJbJja3K0ATX\nLGujvglvSQCtoKeSw+TLh7966+HUXf0n4IsrBgIOrVu4x+K5c7CD7ALuYLfyHqbw\nSoZxDSgvU/K+HBobfzWF0+6Y+AHBSz7xBQyoUjWvLDdcGSWM+Z+438hGMpExW1SX\nCF6FmOkBTu/xh8hVJtKAxml+6wKBgQC1tuZoEMZCFaK37ryD+9ZNYJirRdaItP/l\n5uUBZcOf92KoXfCONp07KohECABVDQ6HNiZ+AZFX1zjT1tgpZ8vrgkdE5Rz0HWmW\nQbcOZztGlt0sH7wN1xqBCdXsuipPFzKYTyWRRdkR77ZcTr6K9Q4K6+CBQbfCFwFW\nuMwYxcggtwKBgQCq/EMnifAd6RsnQvQVlJtmaXaqi2MgOMJXmDCxUHvKohkIa9HI\nQ+nyLBlHJ6IsBr9WUXuxwRnpqBj9nylXB2SrgdftoyBGXUkyEUvN/vKIvlPedBsJ\nXGJDTWLLoIxkK4TYZ3vnh2UoIPmLkO5C2Gq1kcQ+HnBm8nRzEv237pokawKBgQCh\nQp9W2wwWuXyeHo/N0UBtirvxwxiQWZB/RlkU1Gq3G6PCJxvEGVOPnj8voKoq0FuE\nQtoGGP4TJjyYQqGynRqq9gKpcWoweamqXsdFUPeZvWiqL7+DyNEMkt32J4BEkCGm\naRa9xW7OLB157afLSY4cwxeJnfilliTqATWfBmaEIQKBgQC1JVXT9WPTTtgQEgZb\nJGeXiyHIxDIMfBuC2sebomGDk0h6wZwDrxeAFw+/3gQGtY/iRbc6mAE/D7Q7gX2u\nVTmVbytqiVK/PVTNfDnzWAQgFcHKBBd940Iu+SLp78H0i2V4l33naKLjcCSrlkHx\n1bhJR4ESsW40T/9RRst2mFY70w==\n-----END PRIVATE KEY-----\n",
-  "client_email": "splithappens@splithappens.iam.gserviceaccount.com",
-  "client_id": "108179188177514035576",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/splithappens%40splithappens.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}"#;
-
 impl SheetsDao {
     pub async fn new(sheet_id: String) -> Self {
-        let creds = yup_oauth2::parse_service_account_key(SERVICE_ACCOUNT_KEY_STRING)
-            .expect("Can't read credential, an error occurred");
+        let creds = yup_oauth2::parse_service_account_key(
+            crate::secrets::SERVICE_ACCOUNT_KEY_STRING_TEMPLATE,
+        )
+        .expect("Can't read credential, an error occurred");
 
         // This seems silly; the sheets constructor and the account authenticator disagree on the second generic parameter type so lets make two of them...
         let client =
@@ -391,5 +363,36 @@ impl SheetsDao {
             .expect("No effective value")
             .number_value
             .expect("No number value")
+    }
+}
+
+#[async_trait]
+impl StorageDao for SheetsDao {
+    async fn get_names(&self) -> Vec<String> {
+        self.get_names().await
+    }
+
+    async fn get_balances(&self) -> Vec<Balance> {
+        self.get_balances().await
+    }
+
+    async fn get_last_n_transactions(&self, n: usize) -> Vec<Transaction> {
+        self.get_last_n_transactions(n).await
+    }
+
+    async fn remove_last_transaction(&self) {
+        self.remove_last_transaction().await
+    }
+
+    async fn add_split(&self, name: String, split: String) {
+        self.add_split(name, split).await
+    }
+
+    async fn add_conversion(&self, name: String, split: String) {
+        self.add_conversion(name, split).await
+    }
+
+    async fn get_split_awards(&self) -> HashMap<String, f64> {
+        self.get_split_awards().await
     }
 }

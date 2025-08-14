@@ -19,11 +19,9 @@ export const TransactionList = ({
   };
 
   return (
-    <div className="bg-neutral bg-opacity-90 rounded-lg shadow-md">
-      <div className="p-4 border-b border-neutral">
-        <h2 className="text-xl font-semibold text-neutral">
-          Recent Transactions
-        </h2>
+    <div className="bg-neutral bg-opacity-90 rounded-lg shadow-md border border-neutral">
+      <div className="p-4 border-b bg-primary rounded-t-lg">
+        <h2 className="text-xl font-semibold text-neutral">Transactions</h2>
       </div>
       <div className="divide-y divide-neutral divide-opacity-20">
         {recentTransactions.length === 0 ? (
@@ -36,8 +34,9 @@ export const TransactionList = ({
               key={index}
               className="p-4 hover:bg-neutral-hover transition-colors"
             >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
+              <div className="grid grid-cols-[3fr_1fr_4fr] gap-4 items-center justify-items-start">
+                {/* Transaction Details */}
+                <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-neutral">
                       {transaction.creditor}
@@ -47,14 +46,43 @@ export const TransactionList = ({
                       {transaction.debtor}
                     </span>
                   </div>
-                  <div className="text-sm text-neutral mt-1">
+                  <div className="text-sm text-neutral mt-2">
                     <span className="bg-primary text-primary px-2 py-1 rounded-full text-xs font-medium">
                       {transaction.split}
                     </span>
-                    <span className="ml-2">{transaction.date}</span>
+                  </div>
+                  <div className="text-sm text-neutral mt-1">
+                    {transaction.date}
                   </div>
                 </div>
-                <div className="text-right">
+
+                {/* Action buttons */}
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => onConvert(transaction)}
+                    disabled={!isSplit(transaction)}
+                    className={`p-2 rounded-md transition-colors w-8 h-8 flex items-center justify-center ${
+                      isSplit(transaction)
+                        ? "bg-confirmation-hover text-confirmation"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    }`}
+                    title="Convert"
+                  >
+                    ✓
+                  </button>
+                  {index === 0 && (
+                    <button
+                      onClick={onUndo}
+                      className="p-2 bg-negative-hover text-negative rounded-md transition-colors w-8 h-8 flex items-center justify-center"
+                      title="Undo"
+                    >
+                      ↩
+                    </button>
+                  )}
+                </div>
+
+                {/* Amounts */}
+                <div className="text-right justify-self-end">
                   <div
                     className={`text-lg font-bold px-2 py-1 rounded ${
                       isSplit(transaction)
@@ -68,26 +96,6 @@ export const TransactionList = ({
                     Pot: ${transaction.pot_amount.toFixed(2)}
                   </div>
                 </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="mt-3 flex gap-2">
-                {index === 0 && (
-                  <button
-                    onClick={onUndo}
-                    className="px-3 py-1 text-sm bg-negative-hover text-negative rounded-md transition-colors"
-                  >
-                    Undo
-                  </button>
-                )}
-                {isSplit(transaction) && (
-                  <button
-                    onClick={() => onConvert(transaction)}
-                    className="px-3 py-1 text-sm bg-confirmation-hover text-confirmation rounded-md transition-colors"
-                  >
-                    Convert
-                  </button>
-                )}
               </div>
             </div>
           ))

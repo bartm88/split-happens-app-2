@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "(cd src-tauri && cargo test)",
-    "macos": "tauri dev -- --features macos",
+    "macos": "RUST_BACKTRACE=1 tauri dev -- --features macos",
     "mac-ios": "tauri dev -- --features ios",
     "mac-android": "tauri dev -- --features android",
     "ios": "tauri ios dev --features ios --host --open",
