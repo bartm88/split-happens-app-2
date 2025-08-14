@@ -6,7 +6,6 @@ import { SplitForm } from "./components/SplitForm";
 import { Settings } from "./components/Settings";
 import { BalanceTicker } from "./components/BalanceTicker";
 import { Modal } from "./components/Modal";
-import { LoadingSpinner } from "./components/LoadingSpinner";
 
 function App() {
   const [balances, setBalances] = useState<Balance[]>([]);
