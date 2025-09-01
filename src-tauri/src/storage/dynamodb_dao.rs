@@ -3,7 +3,9 @@ use crate::secrets::{AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY};
 use async_trait::async_trait;
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
+use aws_smithy_runtime::client::http::hyper_014::HyperClientBuilder;
 use chrono::{DateTime, Utc};
+use hyper_rustls::HttpsConnectorBuilder;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -16,7 +18,18 @@ pub struct DynamoDbDao {
 
 impl DynamoDbDao {
     pub async fn new() -> Self {
-        // Create AWS config with credentials from secrets
+        // Create HTTPS connector with webpki-roots (Mozilla root certificates)
+        let rustls_connector = HttpsConnectorBuilder::new()
+            .with_webpki_roots()
+            .https_only()
+            .enable_http1()
+            .enable_http2()
+            .build();
+
+        // Create HTTP client with the connector
+        let http_client = HyperClientBuilder::new().build(rustls_connector);
+
+        // Create AWS config with credentials from secrets and custom HTTP client
         let config = aws_config::defaults(BehaviorVersion::latest())
             .region(Region::new(AWS_REGION))
             .credentials_provider(aws_sdk_dynamodb::config::Credentials::new(
@@ -26,6 +39,7 @@ impl DynamoDbDao {
                 None, // expiration
                 "split-happens-static-credentials",
             ))
+            .http_client(http_client)
             .load()
             .await;
 

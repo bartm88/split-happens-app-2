@@ -26,3 +26,4 @@ dist-ssr
 src-tauri/src/secrets.rs
 
 .claude/*
+**/keystore.properties

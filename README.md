@@ -81,7 +81,8 @@ xcrun altool --upload-app --type ios --file "src-tauri/gen/apple/build/arm64/mai
 
 ### One time
 
-Set up a signing key: https://v2.tauri.app/distribute/sign/android/
+Set up a signing key and configure the project to use it: https://v2.tauri.app/distribute/sign/android/
+Example commit (excluding the not-checked-in src-tauri/gen/android/keystore.properties): https://github.com/bartm88/split-happens-app/commit/4035e6342b4392c40241e7fee0b3031069867d70
 
 #https://github.com/aws/aws-lc-rs/issues/665
 export NDK_ROOT="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk | tail -1)"
@@ -96,14 +97,12 @@ Upload to google drive AppApks
 
 ## Next steps
 
-Fix radio button bug (not deselecting)
 Fix android button styling
 Force android landscape
 Android everything is too big
 Get creds out of app - https://github.com/FabianLars/tauri-plugin-oauth
 Sheet history
 Create new sheet
-Redo in react
 
 ## Secrets
 
@@ -114,3 +113,13 @@ FILL ME IN
 ```
 npm run tauri icon ./public/appIcon.png
 ```
+
+TODO:
+New game creation
+Game selection
+How to show which games to people
+Show conversion rate this game for a person
+Show difficulty of split
+What if player (doesn't affect pot but shows what the balances would have been if the player played)
+Stat sheet for game.
+Consider soft deletes for undo (makes logic for other operations more complex)
