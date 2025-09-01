@@ -84,9 +84,9 @@ xcrun altool --upload-app --type ios --file "src-tauri/gen/apple/build/arm64/mai
 Set up a signing key: https://v2.tauri.app/distribute/sign/android/
 
 #https://github.com/aws/aws-lc-rs/issues/665
-export NDK_ROOT="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"
-export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"
-export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"
+export NDK_ROOT="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk | tail -1)"
+export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk | tail -1)"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk | tail -1)"
 export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
 
 ### Every time
