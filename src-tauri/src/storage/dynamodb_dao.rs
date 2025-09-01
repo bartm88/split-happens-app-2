@@ -53,21 +53,6 @@ impl DynamoDbDao {
         Ok(response.item)
     }
 
-    async fn get_all_transactions(
-        &self,
-    ) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error> {
-        let response = self
-            .client
-            .query()
-            .table_name(&self.transactions_table)
-            .key_condition_expression("game_id = :game_id")
-            .expression_attribute_values(":game_id", AttributeValue::S(self.game_id.clone()))
-            .send()
-            .await?;
-
-        Ok(response.items.unwrap_or_default())
-    }
-
     async fn get_next_transaction_number(&self) -> Result<i32, aws_sdk_dynamodb::Error> {
         match self.get_game().await? {
             Some(game_item) => {
@@ -289,30 +274,6 @@ impl DynamoDbDao {
         })
     }
 
-    async fn calculate_balances_from_transactions(&self) -> HashMap<String, f64> {
-        let mut balances: HashMap<String, f64> = HashMap::new();
-
-        // Get all names first to initialize balances
-        let names = self.get_names().await;
-        for name in names {
-            balances.insert(name, 0.0);
-        }
-
-        // Get all transactions and calculate balances
-        if let Ok(items) = self.get_all_transactions().await {
-            for item in items {
-                if let Some(transaction) = self.item_to_transaction(&item) {
-                    // Creditor gets positive amount
-                    *balances.entry(transaction.creditor).or_insert(0.0) += transaction.amount;
-                    // Debtor gets negative amount
-                    *balances.entry(transaction.debtor).or_insert(0.0) -= transaction.amount;
-                }
-            }
-        }
-
-        balances
-    }
-
     async fn get_balances_from_game(&self) -> Vec<Balance> {
         match self.get_game().await {
             Ok(Some(game_item)) => {
@@ -332,27 +293,47 @@ impl DynamoDbDao {
                         })
                         .collect()
                 } else {
-                    // If no balances in game, calculate from transactions
-                    let balances = self.calculate_balances_from_transactions().await;
-                    balances
-                        .into_iter()
-                        .map(|(name, amount)| Balance {
-                            name,
-                            amount: format!("{:.2}", amount),
-                        })
-                        .collect()
+                    panic!("No balances in game");
                 }
             }
             _ => {
-                // If no game found, calculate from transactions
-                let balances = self.calculate_balances_from_transactions().await;
-                balances
-                    .into_iter()
-                    .map(|(name, amount)| Balance {
-                        name,
-                        amount: format!("{:.2}", amount),
-                    })
-                    .collect()
+                panic!("No game found");
+            }
+        }
+    }
+
+    async fn get_last_transaction_and_number(&self) -> (Transaction, i32) {
+        match self
+            .client
+            .query()
+            .table_name(&self.transactions_table)
+            .key_condition_expression("game_id = :game_id")
+            .expression_attribute_values(":game_id", AttributeValue::S(self.game_id.clone()))
+            .scan_index_forward(false)
+            .limit(1 as i32) // Limit to n items
+            .send()
+            .await
+        {
+            Ok(response) => response
+                .items
+                .unwrap_or_default()
+                .iter()
+                .map(|item| {
+                    let transaction_num = item
+                        .get("transaction_num")
+                        .unwrap()
+                        .as_n()
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    let transaction = self.item_to_transaction(&item).unwrap();
+                    (transaction, transaction_num)
+                })
+                .next()
+                .unwrap(),
+            Err(e) => {
+                log::error!("Failed to get last n transactions: {:?}", e);
+                panic!("Failed to get last n transactions: {:?}", e);
             }
         }
     }
@@ -371,25 +352,11 @@ impl StorageDao for DynamoDbDao {
                     }
                     names
                 } else {
-                    // Default names if no players found
-                    vec![
-                        "Alice".to_string(),
-                        "Bob".to_string(),
-                        "Charlie".to_string(),
-                        "Dana".to_string(),
-                        "Pot".to_string(),
-                    ]
+                    panic!("No players in game");
                 }
             }
             _ => {
-                // Default names if error or game not found
-                vec![
-                    "Alice".to_string(),
-                    "Bob".to_string(),
-                    "Charlie".to_string(),
-                    "Dana".to_string(),
-                    "Pot".to_string(),
-                ]
+                panic!("No game found");
             }
         }
     }
@@ -399,60 +366,42 @@ impl StorageDao for DynamoDbDao {
     }
 
     async fn get_last_n_transactions(&self, n: usize) -> Vec<Transaction> {
-        match self.get_all_transactions().await {
-            Ok(items) => {
-                let mut transactions: Vec<Transaction> = items
-                    .iter()
-                    .filter_map(|item| self.item_to_transaction(item))
-                    .collect();
-
-                // Sort by transaction number and take last n
-                transactions.sort_by(|a, b| {
-                    // First try to sort by time if available
-                    a.time.cmp(&b.time)
-                });
-                let start = transactions.len().saturating_sub(n);
-                transactions[start..].to_vec()
-            }
+        // Use DynamoDB query with descending sort order and limit
+        match self
+            .client
+            .query()
+            .table_name(&self.transactions_table)
+            .key_condition_expression("game_id = :game_id")
+            .expression_attribute_values(":game_id", AttributeValue::S(self.game_id.clone()))
+            .scan_index_forward(true) // Sort by sort key (transaction_num) in descending order
+            .limit(n as i32) // Limit to n items
+            .send()
+            .await
+        {
+            Ok(response) => response
+                .items
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|item| self.item_to_transaction(item))
+                .collect(),
             Err(e) => {
-                log::error!("Failed to get transactions: {:?}", e);
+                log::error!("Failed to get last n transactions: {:?}", e);
                 Vec::new()
             }
         }
     }
 
     async fn remove_last_transaction(&self) {
-        // Get all transactions, find the last one, and delete it
-        if let Ok(items) = self.get_all_transactions().await {
-            let mut transactions: Vec<(i32, Transaction)> = items
-                .iter()
-                .filter_map(|item| {
-                    let transaction_number =
-                        item.get("transaction_num")?.as_n().ok()?.parse().ok()?;
-                    let transaction = self.item_to_transaction(item)?;
-                    Some((transaction_number, transaction))
-                })
-                .collect();
+        let (last_transaction, last_transaction_num) = self.get_last_transaction_and_number().await;
 
-            if !transactions.is_empty() {
-                // Sort by time and get the last transaction's number
-                transactions.sort_by(|a, b| a.1.time.cmp(&b.1.time));
-                let last_transaction_number = transactions.last().unwrap().0;
+        if let Err(e) = self.delete_transaction(last_transaction_num).await {
+            log::error!("Failed to delete transaction: {:?}", e);
+            return;
+        }
 
-                // Get the transaction details before deleting
-                let last_transaction = &transactions.last().unwrap().1;
-
-                // Delete the transaction
-                if let Err(e) = self.delete_transaction(last_transaction_number).await {
-                    log::error!("Failed to delete transaction: {:?}", e);
-                    return;
-                }
-
-                // Reverse the transaction effects in the game balances
-                if let Err(e) = self.reverse_transaction_in_game(last_transaction).await {
-                    log::error!("Failed to reverse transaction in game: {:?}", e);
-                }
-            }
+        // Reverse the transaction effects in the game balances
+        if let Err(e) = self.reverse_transaction_in_game(&last_transaction).await {
+            log::error!("Failed to reverse transaction in game: {:?}", e);
         }
     }
 
@@ -560,471 +509,9 @@ impl StorageDao for DynamoDbDao {
         }
     }
 
-    /*
-        Here are all the split awards:
-        2-3	10
-    2-7	10
-    2-9	10
-    3-10	10
-    3-8	10
-    4-5	10
-    5-6	10
-    7-8	10
-    8-9	10
-    9-10	10
-    2-10	30
-    2-3-10	30
-    2-3-4	30
-    2-3-4-10	30
-    2-3-4-5	30
-    2-3-4-5-10	30
-    2-3-4-5-6	30
-    2-3-4-5-6-10	30
-    2-3-4-5-6-7	30
-    2-3-4-5-6-7-10	30
-    2-3-4-5-6-7-8	30
-    2-3-4-5-6-7-8-10	30
-    2-3-4-5-6-7-8-9	30
-    2-3-4-5-6-7-8-9-10	30
-    2-3-4-5-6-7-9	30
-    2-3-4-5-6-7-9-10	30
-    2-3-4-5-6-8	30
-    2-3-4-5-6-8-10	30
-    2-3-4-5-6-8-9	30
-    2-3-4-5-6-8-9-10	30
-    2-3-4-5-6-9	30
-    2-3-4-5-6-9-10	30
-    2-3-4-5-7	30
-    2-3-4-5-7-10	30
-    2-3-4-5-7-8	30
-    2-3-4-5-7-8-10	30
-    2-3-4-5-7-8-9	30
-    2-3-4-5-7-8-9-10	30
-    2-3-4-5-7-9	30
-    2-3-4-5-7-9-10	30
-    2-3-4-5-8	30
-    2-3-4-5-8-10	30
-    2-3-4-5-8-9	30
-    2-3-4-5-8-9-10	30
-    2-3-4-5-9	30
-    2-3-4-5-9-10	30
-    2-3-4-6	30
-    2-3-4-6-10	30
-    2-3-4-6-7	30
-    2-3-4-6-7-10	30
-    2-3-4-6-7-8	30
-    2-3-4-6-7-8-10	30
-    2-3-4-6-7-8-9	30
-    2-3-4-6-7-8-9-10	30
-    2-3-4-6-7-9	30
-    2-3-4-6-7-9-10	30
-    2-3-4-6-8	30
-    2-3-4-6-8-10	30
-    2-3-4-6-8-9	30
-    2-3-4-6-8-9-10	30
-    2-3-4-6-9	30
-    2-3-4-6-9-10	30
-    2-3-4-7	30
-    2-3-4-7-10	30
-    2-3-4-7-8	30
-    2-3-4-7-8-10	30
-    2-3-4-7-8-9	30
-    2-3-4-7-8-9-10	30
-    2-3-4-7-9	30
-    2-3-4-7-9-10	30
-    2-3-4-8	30
-    2-3-4-8-10	30
-    2-3-4-8-9	30
-    2-3-4-8-9-10	30
-    2-3-4-9	30
-    2-3-4-9-10	30
-    2-3-5	30
-    2-3-5-10	30
-    2-3-5-6	30
-    2-3-5-6-10	30
-    2-3-5-6-7	30
-    2-3-5-6-7-10	30
-    2-3-5-6-7-8	30
-    2-3-5-6-7-8-10	30
-    2-3-5-6-7-8-9	30
-    2-3-5-6-7-8-9-10	30
-    2-3-5-6-7-9	30
-    2-3-5-6-7-9-10	30
-    2-3-5-6-8	30
-    2-3-5-6-8-10	30
-    2-3-5-6-8-9	30
-    2-3-5-6-8-9-10	30
-    2-3-5-6-9	30
-    2-3-5-6-9-10	30
-    2-3-5-7	30
-    2-3-5-7-10	30
-    2-3-5-7-8	30
-    2-3-5-7-8-10	30
-    2-3-5-7-8-9	30
-    2-3-5-7-8-9-10	30
-    2-3-5-7-9	30
-    2-3-5-7-9-10	30
-    2-3-5-8	30
-    2-3-5-8-10	30
-    2-3-5-8-9	30
-    2-3-5-8-9-10	30
-    2-3-5-9	30
-    2-3-5-9-10	30
-    2-3-6	30
-    2-3-6-10	30
-    2-3-6-7	30
-    2-3-6-7-10	30
-    2-3-6-7-8	30
-    2-3-6-7-8-10	30
-    2-3-6-7-8-9	30
-    2-3-6-7-8-9-10	30
-    2-3-6-7-9	30
-    2-3-6-7-9-10	30
-    2-3-6-8	30
-    2-3-6-8-10	30
-    2-3-6-8-9	30
-    2-3-6-8-9-10	30
-    2-3-6-9	30
-    2-3-6-9-10	30
-    2-3-7	30
-    2-3-7-10	30
-    2-3-7-8	30
-    2-3-7-8-10	30
-    2-3-7-8-9	30
-    2-3-7-8-9-10	30
-    2-3-7-9	30
-    2-3-7-9-10	30
-    2-3-8	30
-    2-3-8-10	30
-    2-3-8-9	30
-    2-3-8-9-10	30
-    2-3-9	30
-    2-3-9-10	30
-    2-4-10	30
-    2-4-5-10	30
-    2-4-5-6	30
-    2-4-5-6-10	30
-    2-4-5-6-7	30
-    2-4-5-6-7-10	30
-    2-4-5-6-7-8	30
-    2-4-5-6-7-8-10	30
-    2-4-5-6-7-8-9	30
-    2-4-5-6-7-8-9-10	30
-    2-4-5-6-7-9	30
-    2-4-5-6-7-9-10	30
-    2-4-5-6-8	30
-    2-4-5-6-8-10	30
-    2-4-5-6-8-9	30
-    2-4-5-6-8-9-10	30
-    2-4-5-6-9	30
-    2-4-5-6-9-10	30
-    2-4-5-7-10	30
-    2-4-5-7-8-10	30
-    2-4-5-7-8-9-10	30
-    2-4-5-7-9-10	30
-    2-4-5-8-10	30
-    2-4-5-8-9-10	30
-    2-4-5-9-10	30
-    2-4-6	30
-    2-4-6-10	30
-    2-4-6-7	30
-    2-4-6-7-10	30
-    2-4-6-7-8	30
-    2-4-6-7-8-10	30
-    2-4-6-7-8-9	30
-    2-4-6-7-8-9-10	30
-    2-4-6-7-9	30
-    2-4-6-7-9-10	30
-    2-4-6-8	30
-    2-4-6-8-10	30
-    2-4-6-8-9	30
-    2-4-6-8-9-10	30
-    2-4-6-9	30
-    2-4-6-9-10	30
-    2-4-7-10	30
-    2-4-7-8-10	30
-    2-4-7-8-9	30
-    2-4-7-8-9-10	30
-    2-4-7-9	30
-    2-4-7-9-10	30
-    2-4-8-10	30
-    2-4-8-9	30
-    2-4-8-9-10	30
-    2-4-9	30
-    2-4-9-10	30
-    2-5-10	30
-    2-5-6	30
-    2-5-6-10	30
-    2-5-6-7	30
-    2-5-6-7-10	30
-    2-5-6-7-8	30
-    2-5-6-7-8-10	30
-    2-5-6-7-8-9	30
-    2-5-6-7-8-9-10	30
-    2-5-6-7-9	30
-    2-5-6-7-9-10	30
-    2-5-6-8	30
-    2-5-6-8-10	30
-    2-5-6-8-9	30
-    2-5-6-8-9-10	30
-    2-5-6-9	30
-    2-5-6-9-10	30
-    2-5-7	30
-    2-5-7-10	30
-    2-5-7-8	30
-    2-5-7-8-10	30
-    2-5-7-8-9	30
-    2-5-7-8-9-10	30
-    2-5-7-9	30
-    2-5-7-9-10	30
-    2-5-8-10	30
-    2-5-8-9-10	30
-    2-5-9-10	30
-    2-6	30
-    2-6-10	30
-    2-6-7	30
-    2-6-7-10	30
-    2-6-7-8	30
-    2-6-7-8-10	30
-    2-6-7-8-9	30
-    2-6-7-8-9-10	30
-    2-6-7-9	30
-    2-6-7-9-10	30
-    2-6-8	30
-    2-6-8-10	30
-    2-6-8-9	30
-    2-6-8-9-10	30
-    2-6-9	30
-    2-6-9-10	30
-    2-7-10	30
-    2-7-8	30
-    2-7-8-10	30
-    2-7-8-9	30
-    2-7-8-9-10	30
-    2-7-9	30
-    2-7-9-10	30
-    2-8-9	30
-    2-8-9-10	30
-    2-9-10	30
-    3-4	30
-    3-4-10	30
-    3-4-5	30
-    3-4-5-10	30
-    3-4-5-6	30
-    3-4-5-6-10	30
-    3-4-5-6-7	30
-    3-4-5-6-7-10	30
-    3-4-5-6-7-8	30
-    3-4-5-6-7-8-10	30
-    3-4-5-6-7-8-9	30
-    3-4-5-6-7-8-9-10	30
-    3-4-5-6-7-9	30
-    3-4-5-6-7-9-10	30
-    3-4-5-6-8	30
-    3-4-5-6-8-10	30
-    3-4-5-6-8-9	30
-    3-4-5-6-8-9-10	30
-    3-4-5-6-9	30
-    3-4-5-6-9-10	30
-    3-4-5-7	30
-    3-4-5-7-10	30
-    3-4-5-7-8	30
-    3-4-5-7-8-10	30
-    3-4-5-7-8-9	30
-    3-4-5-7-8-9-10	30
-    3-4-5-7-9	30
-    3-4-5-7-9-10	30
-    3-4-5-8	30
-    3-4-5-8-10	30
-    3-4-5-8-9	30
-    3-4-5-8-9-10	30
-    3-4-5-9	30
-    3-4-5-9-10	30
-    3-4-6	30
-    3-4-6-10	30
-    3-4-6-7	30
-    3-4-6-7-10	30
-    3-4-6-7-8	30
-    3-4-6-7-8-10	30
-    3-4-6-7-8-9	30
-    3-4-6-7-8-9-10	30
-    3-4-6-7-9	30
-    3-4-6-7-9-10	30
-    3-4-6-8	30
-    3-4-6-8-10	30
-    3-4-6-8-9	30
-    3-4-6-8-9-10	30
-    3-4-6-9	30
-    3-4-6-9-10	30
-    3-4-7	30
-    3-4-7-10	30
-    3-4-7-8	30
-    3-4-7-8-10	30
-    3-4-7-8-9	30
-    3-4-7-8-9-10	30
-    3-4-7-9	30
-    3-4-7-9-10	30
-    3-4-8	30
-    3-4-8-10	30
-    3-4-8-9	30
-    3-4-8-9-10	30
-    3-4-9	30
-    3-4-9-10	30
-    3-5-10	30
-    3-5-6-7	30
-    3-5-6-7-10	30
-    3-5-6-7-8	30
-    3-5-6-7-8-10	30
-    3-5-6-7-8-9	30
-    3-5-6-7-8-9-10	30
-    3-5-6-7-9	30
-    3-5-6-7-9-10	30
-    3-5-7	30
-    3-5-7-10	30
-    3-5-7-8	30
-    3-5-7-8-10	30
-    3-5-7-8-9	30
-    3-5-7-8-9-10	30
-    3-5-7-9	30
-    3-5-7-9-10	30
-    3-5-8-10	30
-    3-5-8-9-10	30
-    3-5-9-10	30
-    3-6-7	30
-    3-6-7-10	30
-    3-6-7-8	30
-    3-6-7-8-10	30
-    3-6-7-8-9	30
-    3-6-7-8-9-10	30
-    3-6-7-9	30
-    3-6-7-9-10	30
-    3-6-8	30
-    3-6-8-10	30
-    3-6-8-9	30
-    3-6-8-9-10	30
-    3-7	30
-    3-7-10	30
-    3-7-8	30
-    3-7-8-10	30
-    3-7-8-9	30
-    3-7-8-9-10	30
-    3-7-9-10	30
-    3-8-10	30
-    3-8-9	30
-    3-8-9-10	30
-    3-9-10	30
-    4-10	30
-    4-5-10	30
-    4-5-6	30
-    4-5-6-10	30
-    4-5-6-7	30
-    4-5-6-7-10	30
-    4-5-6-7-8	30
-    4-5-6-7-8-10	30
-    4-5-6-7-8-9	30
-    4-5-6-7-8-9-10	30
-    4-5-6-7-9	30
-    4-5-6-7-9-10	30
-    4-5-6-8	30
-    4-5-6-8-10	30
-    4-5-6-8-9	30
-    4-5-6-8-9-10	30
-    4-5-6-9	30
-    4-5-6-9-10	30
-    4-5-7	30
-    4-5-7-10	30
-    4-5-7-8	30
-    4-5-7-8-10	30
-    4-5-7-8-9	30
-    4-5-7-8-9-10	30
-    4-5-7-9	30
-    4-5-7-9-10	30
-    4-5-8	30
-    4-5-8-10	30
-    4-5-8-9	30
-    4-5-8-9-10	30
-    4-5-9	30
-    4-5-9-10	30
-    4-6-7-8	30
-    4-6-7-8-9	30
-    4-6-7-8-9-10	30
-    4-6-7-9	30
-    4-6-8	30
-    4-6-8-10	30
-    4-6-8-9	30
-    4-6-8-9-10	30
-    4-6-9	30
-    4-6-9-10	30
-    4-7-10	30
-    4-7-8-10	30
-    4-7-8-9	30
-    4-7-8-9-10	30
-    4-7-9	30
-    4-7-9-10	30
-    4-8-10	30
-    4-8-9	30
-    4-8-9-10	30
-    4-9	30
-    4-9-10	30
-    5-10	30
-    5-6-10	30
-    5-6-7	30
-    5-6-7-10	30
-    5-6-7-8	30
-    5-6-7-8-10	30
-    5-6-7-8-9	30
-    5-6-7-8-9-10	30
-    5-6-7-9	30
-    5-6-7-9-10	30
-    5-6-8	30
-    5-6-8-10	30
-    5-6-8-9	30
-    5-6-8-9-10	30
-    5-6-9	30
-    5-6-9-10	30
-    5-7	30
-    5-7-10	30
-    5-7-8	30
-    5-7-8-10	30
-    5-7-8-9	30
-    5-7-8-9-10	30
-    5-7-9	30
-    5-7-9-10	30
-    5-8-10	30
-    5-8-9-10	30
-    5-9-10	30
-    6-7	30
-    6-7-10	30
-    6-7-8	30
-    6-7-8-10	30
-    6-7-8-9	30
-    6-7-8-9-10	30
-    6-7-9	30
-    6-7-9-10	30
-    6-8	30
-    6-8-10	30
-    6-8-9	30
-    6-8-9-10	30
-    7-8-10	30
-    7-8-9	30
-    7-8-9-10	30
-    7-9-10	30
-    8-9-10	30
-    2-8-10	50
-    3-7-9	50
-    4-6	50
-    4-6-10	50
-    4-6-7	50
-    4-6-7-10	50
-    4-6-7-8-10	50
-    4-6-7-9-10	50
-    7-10	50
-    7-9	50
-    8-10	50
-         */
     async fn get_split_awards(&self) -> HashMap<String, f64> {
         let mut awards = HashMap::new();
-        
+
         // 10% splits
         awards.insert("2-3".to_string(), 10.0);
         awards.insert("2-7".to_string(), 10.0);
@@ -1036,7 +523,7 @@ impl StorageDao for DynamoDbDao {
         awards.insert("7-8".to_string(), 10.0);
         awards.insert("8-9".to_string(), 10.0);
         awards.insert("9-10".to_string(), 10.0);
-        
+
         // 30% splits
         awards.insert("2-10".to_string(), 30.0);
         awards.insert("2-3-10".to_string(), 30.0);
@@ -1476,7 +963,7 @@ impl StorageDao for DynamoDbDao {
         awards.insert("7-8-9-10".to_string(), 30.0);
         awards.insert("7-9-10".to_string(), 30.0);
         awards.insert("8-9-10".to_string(), 30.0);
-        
+
         // 50% splits
         awards.insert("2-8-10".to_string(), 50.0);
         awards.insert("3-7-9".to_string(), 50.0);
