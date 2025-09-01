@@ -19,7 +19,7 @@ export const TransactionList = ({
   const recentTransactions = transactions.slice(0, 5);
 
   const isSplit = (transaction: Transaction): boolean => {
-    return transaction.creditor !== "Pot" && transaction.debtor === "Pot";
+    return transaction.creditor === "Pot" && transaction.debtor !== "Pot";
   };
 
   return (
@@ -64,11 +64,11 @@ export const TransactionList = ({
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-neutral">
-                      {transaction.creditor}
+                      {transaction.debtor}
                     </span>
                     <span className="text-neutral">→</span>
                     <span className="font-semibold text-neutral">
-                      {transaction.debtor}
+                      {transaction.creditor}
                     </span>
                   </div>
                   <div className="text-sm text-neutral mt-2">

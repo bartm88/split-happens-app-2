@@ -1,5 +1,6 @@
 pub mod sheets_dao;
 pub mod memory_dao;
+pub mod dynamodb_dao;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

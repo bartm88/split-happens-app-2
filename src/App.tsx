@@ -64,7 +64,7 @@ function App() {
   };
 
   const handleConvertFromTransaction = async (transaction: Transaction) => {
-    await tauri.convertSplit(transaction.creditor, transaction.split);
+    await tauri.convertSplit(transaction.debtor, transaction.split);
     await loadData(true);
   };
 

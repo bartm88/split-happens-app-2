@@ -2,6 +2,7 @@ use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
+use storage::dynamodb_dao::DynamoDbDao;
 use storage::memory_dao::MemoryDao;
 use storage::sheets_dao::SheetsDao;
 use storage::{Balance, StorageDao, Transaction};
@@ -12,11 +13,14 @@ mod storage;
 
 const DEMO_SHEET_ID: &str = "1SIvYTqRcno-BxMWZAWNcw208N3WREZRRcPzjn_ftUYo";
 const USE_MEMORY_STORAGE: bool = false; // Set to true to use in-memory storage for testing
+const USE_DYNAMODB_STORAGE: bool = true; // Set to true to use DynamoDB storage
 
 // Factory function to create the appropriate DAO
 async fn create_dao(app: &tauri::AppHandle) -> Arc<dyn StorageDao> {
     if USE_MEMORY_STORAGE {
         Arc::new(MemoryDao::new())
+    } else if USE_DYNAMODB_STORAGE {
+        Arc::new(DynamoDbDao::new().await)
     } else {
         let sheet_id = get_sheet_id_from_store(app.clone());
         Arc::new(SheetsDao::new(sheet_id).await)
